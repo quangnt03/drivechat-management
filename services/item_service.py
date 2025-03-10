@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc
 from models.item import Item
+from models.user import User
+from models.conversation import Conversation
 from typing import List, Optional
 from datetime import datetime
 
@@ -8,18 +10,15 @@ class ItemService:
     def __init__(self, session: Session):
         self.session = session
 
-    def get_item_by_id(self, owner: str, item_id: str) -> Optional[Item]:
+    def get_item_by_id(self, owner: User, item_id: str) -> Optional[Item]:
         """Get a single item by ID"""
-        filters = [Item.id == item_id, Item.owner == owner]
+        filters = [Item.id == item_id, Item.owner_id == owner.id]
         query = self.session.query(Item).filter(*filters)
         item = query.first()
         return item
 
-    def get_all_items(self) -> List[Item]:
-        """Get all items regardless of active status"""
-        return self.session.query(Item).all()
 
-    def get_items_by_owner(self, owner: str, active_only: bool = True) -> List[Item]:
+    def get_items_by_owner(self, owner: User, active_only: bool = True) -> List[Item]:
         """
         Get all items for a specific owner
         
@@ -27,26 +26,28 @@ class ItemService:
             owner (str): Owner of the items
             active_only (bool): If True, return only active items. If False, return all items
         """
-        query = self.session.query(Item).filter(Item.owner == owner)
+        query = self.session.query(Item).filter(Item.owner_id == owner.id)
         if active_only:
             query = query.filter(Item.active)
         return query.all()
 
-    def get_items_by_conversation(self, conversation_id: str) -> List[Item]:
+    def get_items_by_conversation(self, conversation: Conversation, active_only: bool = True) -> List[Item]:
         """Get all items in a specific conversation"""
-        return self.session.query(Item).filter(Item.conversation_id == conversation_id).all()
+        query = self.session.query(Item).filter(Item.conversation_id == conversation.id)
+        if active_only:
+            query = query.filter(Item.active)
+        return query.all()
 
     def search_items(self, 
                     search_term: str, 
-                    owner: str,
+                    owner: User,
                     mime_type: Optional[str] = None,
                     active_only: bool = True) -> List[Item]:
         """
         Search items with various filters
         """
         filters = []
-        filters.append(Item.owner == owner)
-        print(f"search_term: {search_term}")
+        filters.append(Item.owner_id == owner.id)
         
         # Add search term filter (searches in file_name)
         if search_term:
@@ -94,12 +95,8 @@ class ItemService:
         self.session.commit()
         return item
 
-    def update_item(self, owner: str, item_id: str, **kwargs) -> Optional[Item]:
+    def update_item(self, item: Item, **kwargs) -> Optional[Item]:
         """Update an item's attributes"""
-        item = self.get_item_by_id(owner, item_id)
-        if not item:
-            return None
-            
         for key, value in kwargs.items():
             if hasattr(item, key):
                 setattr(item, key, value)
@@ -128,4 +125,43 @@ class ItemService:
             
         self.session.delete(item)
         self.session.commit()
-        return True 
+        return True
+
+    def delete_conversation_items(self, conversation: Conversation, owner: User, permanent: bool = False) -> dict:
+        """
+        Delete all items in a conversation
+        
+        Args:
+            conversation (Conversation): The conversation whose items should be deleted
+            owner (User): The owner of the items
+            permanent (bool): If True, permanently delete items. If False, soft delete
+            
+        Returns:
+            dict: Summary of the operation
+        """
+        # Query items that belong to both the conversation and owner
+        query = self.session.query(Item).filter(
+            Item.conversation_id == conversation.id,
+            Item.owner_id == owner.id
+        )
+        
+        items = query.all()
+        if not items:
+            return {"message": "No items found", "deleted_count": 0}
+            
+        count = 0
+        for item in items:
+            if permanent:
+                self.session.delete(item)
+            else:
+                item.active = False
+                item.last_updated = datetime.now()
+            count += 1
+            
+        self.session.commit()
+        
+        action = "permanently deleted" if permanent else "deactivated"
+        return {
+            "message": f"Successfully {action} {count} items",
+            "deleted_count": count
+        } 
