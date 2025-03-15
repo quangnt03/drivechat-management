@@ -14,6 +14,7 @@ class Embedding(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     item_id = Column(UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
     page = Column(Integer, nullable=False)
     chunk_text = Column(Text, nullable=False)
     embedding = Column(Vector(1536)) 
@@ -23,6 +24,7 @@ class Embedding(Base):
     # Define relationship with Item model
     item = relationship("Item", back_populates="embeddings")
     messages = relationship("Message", back_populates="source_embedding")
+    conversation = relationship("Conversation", back_populates="embeddings")
 
     # Composite unique constraint and table configuration
     __table_args__ = (

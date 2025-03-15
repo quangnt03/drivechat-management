@@ -22,7 +22,7 @@ class ItemUpdate(BaseModel):
     file_name: Optional[str] = None
     active: Optional[bool] = None
 
-@item_router.get("/")
+@item_router.get("")
 def get_items(
     search: Optional[str] = None,
     mime_type: Optional[str] = None,
