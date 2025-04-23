@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from dependencies.database import DatabaseService, UserService, ItemService, ConversationService
 from dependencies.security import validate_token
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel, UUID4
 import os
-from models.item import Item
 from models.conversation import Conversation
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
 
 item_router = APIRouter()
 db_service = DatabaseService(os.getenv("DATABASE_URL"))
@@ -43,6 +44,9 @@ def get_items(
     """
     owner = current_user["UserAttributes"][0]["Value"]
     user = user_service.get_user_by_email(owner)
+    if not user:
+        user = user_service.create_user(owner)
+    print(user)
     if search:
         return item_service.search_items(
             search_term=search, 
