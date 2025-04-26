@@ -46,7 +46,6 @@ def get_items(
     user = user_service.get_user_by_email(owner)
     if not user:
         user = user_service.create_user(owner)
-    print(user)
     if search:
         return item_service.search_items(
             search_term=search, 

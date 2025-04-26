@@ -15,7 +15,6 @@ def validate_token(http_authorization_credentials=Depends(reusable_oauth2)) -> s
         user = client.get_user(
             AccessToken=http_authorization_credentials.credentials
         )
-        print(user)
     except Exception as _:
         raise HTTPException(
             status_code=401,
